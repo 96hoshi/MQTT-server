@@ -117,26 +117,26 @@ def publish(client, topic, response, qos):
     client.publish(topic, payload, qos=qos)
 
 
-# userdata is user defined data of any type, updated by user_data_set()
-# client_id is the given name of the client
-client = paho.Client(client_id="phao_plant_server", clean_session=True, userdata=None, protocol=paho.MQTTv31)
-client.on_connect = on_connect
+def main():
+    # userdata is user defined data of any type, updated by user_data_set()
+    # client_id is the given name of the client
+    client = paho.Client(client_id="phao_plant_server", clean_session=True, userdata=None, protocol=paho.MQTTv31)
+    client.on_connect = on_connect
+    client.on_subscribe = on_subscribe
+    client.on_message = on_message
+    client.on_publish = on_publish
 
-# enable TLS for secure connection
-client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
-# set username and password
-client.username_pw_set(username, password)
-# connect to HiveMQ Cloud on port 8883 (default for MQTT)
-client.connect(hostname, 8883)
+    # enable TLS for secure connection
+    client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
+    # set username and password
+    if username:
+        client.username_pw_set(username, password)
 
-# setting callbacks, use separate functions like above for better visibility
-client.on_subscribe = on_subscribe
-client.on_message = on_message
-client.on_publish = on_publish
+    # connect to HiveMQ Cloud on default port 8883
+    client.connect(hostname, 8883)
+    client.subscribe("plant/#", qos=0)
+    client.loop_forever()
 
-# subscribe to all topics of plant by using the wildcard "#"
-client.subscribe("plant/#", qos=0)
 
-# loop_forever for simplicity, here you need to stop the loop manually
-# you can also use loop_start and loop_stop
-client.loop_forever()
+if __name__ == '__main__':
+    main()
