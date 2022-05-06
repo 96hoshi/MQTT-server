@@ -14,9 +14,13 @@
 #
 import os
 import time
+import json
 import paho.mqtt.client as paho
+
 from paho import mqtt
 from dotenv import load_dotenv
+
+from alert import Alert
 
 
 load_dotenv()
@@ -25,58 +29,97 @@ hostname = os.environ['HOSTNAME']
 username = os.environ['SERVER_NAME']
 password = os.environ['SERVER_PASSWORD']
 
+MIN_TEMP = 15
+MAX_TEMP = 35
+MIN_LIGHT = 1000
+MAX_LIGHT = 100000
+
+# TODO put it in a database and associate it with the client_id
+RED_IS_ON = False
+BLUE_IS_ON = False
+
+
 # setting callbacks for different events to see if it works, print the message etc.
 def on_connect(client, userdata, flags, rc, properties=None):
-    """
-        Prints the result of the connection with a reasoncode to stdout ( used as callback for connect )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param flags: these are response flags sent by the broker
-        :param rc: stands for reasonCode, which is a code for the connection result
-        :param properties: can be used in MQTTv5, but is optional
-    """
-    print("CONNACK received with code %s." % rc)
+    if rc == 0:
+        print("Connected successfully")
+    else:
+        print("Connect returned result code: " + str(rc))
 
 
 # with this callback you can see if your publish was successful
 def on_publish(client, userdata, mid, properties=None):
-    """
-        Prints mid to stdout to reassure a successful publish ( used as callback for publish )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param properties: can be used in MQTTv5, but is optional
-    """
     print("mid: " + str(mid))
 
 
 # print which topic was subscribed to
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
-    """
-        Prints a reassurance for successfully subscribing
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param mid: variable returned from the corresponding publish() call, to allow outgoing messages to be tracked
-        :param granted_qos: this is the qos that you declare when subscribing, use the same one for publishing
-        :param properties: can be used in MQTTv5, but is optional
-    """
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
 
 
-# print message, useful for checking if it was successful
 def on_message(client, userdata, msg):
-    """
-        Prints a mqtt message to stdout ( used as callback for subscribe )
-        :param client: the client itself
-        :param userdata: userdata is set when initiating the client, here it is userdata=None
-        :param msg: the message with topic and payload
-    """
+    global RED_IS_ON, BLUE_IS_ON
+    response_topic = "plant/led"
+
+    topic = msg.topic
+    value = float(msg.payload.decode("utf-8"))
+
+    # The requested command is at the end of the topic
+    if topic.endswith("temperature"):
+        if RED_IS_ON:
+            if value > MIN_TEMP or value < MAX_TEMP:
+                res = Alert.RED_OFF.value
+                RED_IS_ON = False
+                publish(client, response_topic, res, 1)
+                # TODO put it in a database and associate it with the client_id
+        elif value <= MIN_TEMP or value >= MAX_TEMP:
+            res = Alert.RED_ON.value
+            RED_IS_ON = True
+            publish(client, response_topic, res, 1)
+            # TODO: send message to bot
+
+    elif topic.endswith("light"):
+        if value <= MIN_LIGHT:
+            # TODO: send message to bot
+            return
+        return
+
+    elif topic.endswith("humidity"):
+        if value < MIN_HUMIDITY:
+            # TODO: send message to bot
+            return
+        return
+
+    elif topic.endswith("water"):
+        # if the alert was already turned on
+        if BLUE_IS_ON:
+            if value:
+                res = Alert.BLUE_OFF.value
+                BLUE_IS_ON = False
+                publish(client, response_topic, res, 1)
+                # TODO put it in a database and associate it with the client_id
+        elif not value:
+            res = Alert.BLUE_ON.value
+            BLUE_IS_ON = True
+            publish(client, response_topic, res, 1)
+            # TODO: send message to bot
+    else:
+        return
+
     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
 
-# using MQTT version 5 here, for 3.1.1: MQTTv311, 3.1: MQTTv31
+
+def publish(client, topic, response, qos):
+    # Now send the alert to the client led
+    print("Sending response "+str(response)+" on '"+topic+"'")
+
+    payload = json.dumps(response)
+    client.publish(topic, payload, qos=qos)
+
+
 # userdata is user defined data of any type, updated by user_data_set()
 # client_id is the given name of the client
-client = paho.Client(client_id="", clean_session=True, userdata=None, protocol=paho.MQTTv31)
+client = paho.Client(client_id="phao_plant_server", clean_session=True, userdata=None, protocol=paho.MQTTv31)
 client.on_connect = on_connect
 
 # enable TLS for secure connection
@@ -91,14 +134,8 @@ client.on_subscribe = on_subscribe
 client.on_message = on_message
 client.on_publish = on_publish
 
-# subscribe to all topics of "encyclopedia" by using the wildcard "#"
-client.subscribe("home/#", qos=1)
-
-# # a single publish, this can also be done in loops, etc.
-# client.publish("home/temperature", payload="hot", qos=1)
-
-# # a single publish, this can also be done in loops, etc.
-# client.publish("home/light", payload="hot", qos=1)
+# subscribe to all topics of plant by using the wildcard "#"
+client.subscribe("plant/#", qos=0)
 
 # loop_forever for simplicity, here you need to stop the loop manually
 # you can also use loop_start and loop_stop
