@@ -1,17 +1,3 @@
-# Copyright 2021 HiveMQ GmbH
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 import os
 import time
 import json
@@ -21,6 +7,7 @@ from paho import mqtt
 from dotenv import load_dotenv
 
 from alert import Alert
+# from bot import send_message
 
 
 load_dotenv()
@@ -33,10 +20,6 @@ MIN_TEMP = 15
 MAX_TEMP = 35
 MIN_LIGHT = 1000
 MAX_LIGHT = 100000
-
-# TODO put it in a database and associate it with the client_id
-RED_IS_ON = False
-BLUE_IS_ON = False
 
 
 # setting callbacks for different events to see if it works, print the message etc.
@@ -61,46 +44,36 @@ def on_message(client, userdata, msg):
     global RED_IS_ON, BLUE_IS_ON
     response_topic = "plant/led"
 
+    print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     topic = msg.topic
-    value = float(msg.payload.decode("utf-8"))
 
     # The requested command is at the end of the topic
-    if topic.endswith("temperature"):
-        if RED_IS_ON:
-            if value > MIN_TEMP or value < MAX_TEMP:
-                res = Alert.RED_OFF.value
-                RED_IS_ON = False
-                publish(client, response_topic, res, 1)
-                # TODO put it in a database and associate it with the client_id
-        elif value <= MIN_TEMP or value >= MAX_TEMP:
+    if topic.endswith("dht"):
+        sliced = str(msg.payload)[2:]
+        payload = sliced[:len(sliced)-1]
+
+        h, t = parse_dht(payload)
+        if t > MIN_TEMP and t < MAX_TEMP:
+            res = Alert.RED_OFF.value
+            publish(client, response_topic, res, 1)
+            # send_message("Temperature alert!")
+            # TODO put it in a database and associate it with the client_id
+        else:
             res = Alert.RED_ON.value
-            RED_IS_ON = True
             publish(client, response_topic, res, 1)
             # TODO: send message to bot
 
-    elif topic.endswith("light"):
-        if value <= MIN_LIGHT:
-            # TODO: send message to bot
-            return
-        return
-
-    elif topic.endswith("humidity"):
-        if value < MIN_HUMIDITY:
-            # TODO: send message to bot
-            return
-        return
-
     elif topic.endswith("water"):
-        # if the alert was already turned on
-        if BLUE_IS_ON:
-            if value:
-                res = Alert.BLUE_OFF.value
-                BLUE_IS_ON = False
-                publish(client, response_topic, res, 1)
-                # TODO put it in a database and associate it with the client_id
-        elif not value:
+        sliced = str(msg.payload)[2:]
+        payload = sliced[:len(sliced)-1]
+
+        value = parse_water(payload)
+        if value == 1:
+            res = Alert.BLUE_OFF.value
+            publish(client, response_topic, res, 1)
+            # TODO put it in a database and associate it with the client_id
+        elif value == 0:
             res = Alert.BLUE_ON.value
-            BLUE_IS_ON = True
             publish(client, response_topic, res, 1)
             # TODO: send message to bot
     else:
@@ -108,6 +81,20 @@ def on_message(client, userdata, msg):
 
     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
 
+
+def parse_dht(payload):
+    print(payload)
+    h, t = payload.split(",")
+    hum = int(h.split(":")[1])
+    temp = int(t.split(":")[1])
+
+    return hum, temp
+
+def parse_water(payload):
+    print(payload)
+    w = int(payload.split(":")[1])
+
+    return w
 
 def publish(client, topic, response, qos):
     # Now send the alert to the client led

@@ -1,2 +1,5 @@
 paho_mqtt==1.6.1
 python-dotenv==0.20.0
+python_telegram_bot==13.11
+SQLAlchemy==1.4.36
+telegram==0.0.1
