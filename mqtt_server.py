@@ -5,9 +5,9 @@ import paho.mqtt.client as paho
 
 from paho import mqtt
 from dotenv import load_dotenv
-
 from alert import Alert
-# from bot import send_message
+from telegram import Bot
+from database import DBHandler
 
 
 load_dotenv()
@@ -21,6 +21,10 @@ MAX_TEMP = 35
 MIN_LIGHT = 1000
 MAX_LIGHT = 100000
 
+TOKEN = os.environ['TOKEN']
+bot = Bot(token=TOKEN)
+dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
+db = DBHandler()
 
 # setting callbacks for different events to see if it works, print the message etc.
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -56,12 +60,23 @@ def on_message(client, userdata, msg):
         if t > MIN_TEMP and t < MAX_TEMP:
             res = Alert.RED_OFF.value
             publish(client, response_topic, res, 1)
+            user = db.get_user_by_device(dev)
+            if user is not None:
+                # chat_id = user.chat_id
+                if user.alert_temp:
+                    # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO: completare
+                    db.set_OFF_temp_alarm(user)
             # send_message("Temperature alert!")
             # TODO put it in a database and associate it with the client_id
         else:
             res = Alert.RED_ON.value
             publish(client, response_topic, res, 1)
-            # TODO: send message to bot
+            user = db.get_user_by_device(dev)
+            if user is not None:
+                chat_id = user.chat_id
+                if not user.alert_temp:
+                    bot.send_message(chat_id=chat_id, text='Temperature too high!') #TODO: completare
+                    db.set_ON_temp_alarm(user)
 
     elif topic.endswith("water"):
         sliced = str(msg.payload)[2:]
