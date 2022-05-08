@@ -72,7 +72,7 @@ def on_message(client, userdata, msg):
                     bot.send_message(chat_id=chat_id, text='Temperature too high!') #TODO: completare?
                     db.set_ON_temp_alarm(user)
        
-        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        now = datetime.now()
         #store temperature in the db   
         db.add_temperature(user.id, t, dev, now)
         #store humidity in the db
@@ -101,7 +101,7 @@ def on_message(client, userdata, msg):
                     bot.send_message(chat_id=chat_id, text='Your plant need some water!') #TODO: completare
                     db.set_ON_water_alarm(user)
         
-        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        now = datetime.now()
         #store water in the db   
         db.add_water(user.id, value, dev, now)
     else:

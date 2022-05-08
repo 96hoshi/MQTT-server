@@ -33,7 +33,7 @@ class Temperature(Base):
     user_id = Column(Integer, ForeignKey('user_account.id'))
     device = Column(Integer)
     value = Column(Integer)
-    timestamp = Column(String)
+    timestamp = Column(DateTime)
 
 class Water(Base):
     __tablename__ = "water"
@@ -42,7 +42,7 @@ class Water(Base):
     user_id = Column(Integer, ForeignKey('user_account.id'))
     device = Column(Integer)
     value = Column(Integer)
-    timestamp = Column(String)
+    timestamp = Column(DateTime)
 
 class Humidity(Base):
     __tablename__ = "humidity"
@@ -51,4 +51,4 @@ class Humidity(Base):
     user_id = Column(Integer, ForeignKey('user_account.id'))
     device = Column(Integer)
     value = Column(Integer)
-    timestamp = Column(String)
+    timestamp = Column(DateTime)
