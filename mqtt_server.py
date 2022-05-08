@@ -1,14 +1,14 @@
 import os
 import json
-from re import X
 import paho.mqtt.client as paho
 
 from paho import mqtt
 from dotenv import load_dotenv
-from alert import Alert
-from telegram import Bot
-from database import DBHandler
 from datetime import datetime
+from telegram import Bot
+
+from alert import Alert
+from database import DBHandler
 
 
 load_dotenv()
@@ -16,18 +16,19 @@ load_dotenv()
 hostname = os.environ['HOSTNAME']
 username = os.environ['SERVER_NAME']
 password = os.environ['SERVER_PASSWORD']
-TOKEN = os.environ['TOKEN']
+dev = os.environ['DEVICE']
+token = os.environ['TOKEN']
+
 
 MIN_TEMP = 15
 MAX_TEMP = 35
-MIN_LIGHT = 1000
-MAX_LIGHT = 100000
-MIN_HUM = 5
-MAX_HUM = 50
+MIN_HUM = 20
+MAX_HUM = 90
 
-bot = Bot(token=TOKEN)
+bot = Bot(token=token)
 db = DBHandler()
-dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
+
+# dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 
 # setting callbacks for different events to see if it works, print the message etc.
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -35,12 +36,15 @@ def on_connect(client, userdata, flags, rc, properties=None):
         print("Connected successfully")
     else:
         print("Connect returned result code: " + str(rc))
+
 # with this callback you can see if your publish was successful
 def on_publish(client, userdata, mid, properties=None):
     print("mid: " + str(mid))
+
 # print which topic was subscribed to
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
 # handle messages recieved
 def on_message(client, userdata, msg):
     response_topic = "plant/led"
@@ -60,7 +64,7 @@ def on_message(client, userdata, msg):
             if user is not None:
                 if user.alert_temp:
                     publish(client, response_topic, res, 1)
-                    # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO: completare
+                    # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO:
                     db.set_OFF_temp_alarm(user)
             
         else:
@@ -69,11 +73,15 @@ def on_message(client, userdata, msg):
                 chat_id = user.chat_id
                 if not user.alert_temp:
                     publish(client, response_topic, res, 1)
-                    bot.send_message(chat_id=chat_id, text='Temperature too high!') #TODO: completare?
+                    if t < MIN_TEMP:
+                        text = 'Temperature too low!'
+                    else:
+                        text = 'Temperature too high!'
+                    bot.send_message(chat_id=chat_id, text=text)
                     db.set_ON_temp_alarm(user)
-       
-        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        #store temperature in the db   
+
+        now = datetime.utcnow()
+        #store temperature in the db
         db.add_temperature(user.id, t, dev, now)
         #store humidity in the db
         db.add_humidity(user.id, h, dev, now)
@@ -89,8 +97,9 @@ def on_message(client, userdata, msg):
             if user is not None:
                 if user.alert_water:
                     publish(client, response_topic, res, 1)
-                    # bot.send_message(chat_id=chat_id, text='Water parameter good!') #TODO: completare?
+                    # bot.send_message(chat_id=chat_id, text='Water parameter good!') #TODO:
                     db.set_OFF_water_alarm(user)
+                    db.set_last_watered(user)
             
         elif value == 0:
             res = Alert.BLUE_ON.value
@@ -98,11 +107,11 @@ def on_message(client, userdata, msg):
                 chat_id = user.chat_id
                 if not user.alert_water:
                     publish(client, response_topic, res, 1)
-                    bot.send_message(chat_id=chat_id, text='Your plant need some water!') #TODO: completare
+                    bot.send_message(chat_id=chat_id, text='Your plant needs some water!')
                     db.set_ON_water_alarm(user)
         
-        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        #store water in the db   
+        now = datetime.utcnow()
+        #store water in the db
         db.add_water(user.id, value, dev, now)
     else:
         return
