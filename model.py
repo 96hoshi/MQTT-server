@@ -1,3 +1,4 @@
+from numpy import integer
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, DateTime
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -28,16 +29,26 @@ class User(Base):
 class Temperature(Base):
     __tablename__ = "temperature"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True,  autoincrement=True)
+    user_id = Column(Integer, ForeignKey('user_account.id'))
     device = Column(Integer)
     value = Column(Integer)
-    timestamp = Column(DateTime)
-
+    timestamp = Column(String)
 
 class Water(Base):
     __tablename__ = "water"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True,  autoincrement=True)
+    user_id = Column(Integer, ForeignKey('user_account.id'))
     device = Column(Integer)
     value = Column(Integer)
-    timestamp = Column(DateTime)
+    timestamp = Column(String)
+
+class Humidity(Base):
+    __tablename__ = "humidity"
+
+    id = Column(Integer, primary_key=True,  autoincrement=True)
+    user_id = Column(Integer, ForeignKey('user_account.id'))
+    device = Column(Integer)
+    value = Column(Integer)
+    timestamp = Column(String)

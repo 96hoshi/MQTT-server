@@ -1,6 +1,6 @@
 import os
-import time
 import json
+from re import X
 import paho.mqtt.client as paho
 
 from paho import mqtt
@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from alert import Alert
 from telegram import Bot
 from database import DBHandler
+from datetime import datetime
 
 
 load_dotenv()
@@ -34,17 +35,12 @@ def on_connect(client, userdata, flags, rc, properties=None):
         print("Connected successfully")
     else:
         print("Connect returned result code: " + str(rc))
-
-
 # with this callback you can see if your publish was successful
 def on_publish(client, userdata, mid, properties=None):
     print("mid: " + str(mid))
-
-
 # print which topic was subscribed to
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
-
 # handle messages recieved
 def on_message(client, userdata, msg):
     response_topic = "plant/led"
@@ -55,62 +51,67 @@ def on_message(client, userdata, msg):
     # The requested command is at the end of the topic
     if topic.endswith("dht"):
         # parse payload
-        sliced = str(msg.payload)[2:]
-        payload = sliced[:len(sliced)-1]
+        payload = slice_payload(msg.payload)
         h, t = parse_dht(payload)
+        user = db.get_user_by_device(dev)
 
         if t > MIN_TEMP and t < MAX_TEMP:
             res = Alert.RED_OFF.value
-            user = db.get_user_by_device(dev)
             if user is not None:
                 if user.alert_temp:
                     publish(client, response_topic, res, 1)
                     # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO: completare
                     db.set_OFF_temp_alarm(user)
-            # TODO put it in a database and associate it with the client_id
+            
         else:
             res = Alert.RED_ON.value
-            user = db.get_user_by_device(dev)
             if user is not None:
                 chat_id = user.chat_id
                 if not user.alert_temp:
                     publish(client, response_topic, res, 1)
                     bot.send_message(chat_id=chat_id, text='Temperature too high!') #TODO: completare?
                     db.set_ON_temp_alarm(user)
-            # TODO put it in a database and associate it with the client_id
-        # TODO: add humidity checks
-        # TODO put humidity in a database and associate it with the client_id
+       
+        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        #store temperature in the db   
+        db.add_temperature(user.id, t, dev, now)
+        #store humidity in the db
+        db.add_humidity(user.id, h, dev, now)
 
     elif topic.endswith("water"):
         # parse payload
-        sliced = str(msg.payload)[2:]
-        payload = sliced[:len(sliced)-1]
+        payload = slice_payload(msg.payload)
         value = parse_water(payload)
+        user = db.get_user_by_device(dev)
 
         if value == 1:
             res = Alert.BLUE_OFF.value
-            user = db.get_user_by_device(dev)
             if user is not None:
                 if user.alert_water:
                     publish(client, response_topic, res, 1)
                     # bot.send_message(chat_id=chat_id, text='Water parameter good!') #TODO: completare?
                     db.set_OFF_water_alarm(user)
-            # TODO put it in a database and associate it with the client_id
+            
         elif value == 0:
             res = Alert.BLUE_ON.value
-            user = db.get_user_by_device(dev)
             if user is not None:
                 chat_id = user.chat_id
                 if not user.alert_water:
                     publish(client, response_topic, res, 1)
                     bot.send_message(chat_id=chat_id, text='Your plant need some water!') #TODO: completare
                     db.set_ON_water_alarm(user)
-        # TODO put it in a database and associate it with the client_id
+        
+        now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        #store water in the db   
+        db.add_water(user.id, value, dev, now)
     else:
         return
 
     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
 
+def slice_payload(payload):
+    sliced = str(payload)[2:]
+    return sliced[:len(sliced)-1]
 
 def parse_dht(payload):
     print(payload)
@@ -132,7 +133,6 @@ def publish(client, topic, response, qos):
 
     payload = json.dumps(response)
     client.publish(topic, payload, qos=qos)
-
 
 def main():
     # userdata is user defined data of any type, updated by user_data_set()

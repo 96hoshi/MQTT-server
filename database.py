@@ -1,8 +1,8 @@
 from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
+#from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import Session
 
-from model import Base, User, Temperature
+from model import Base, Humidity, User, Temperature, Water
 
 class DBHandler:
     def __init__(self):
@@ -43,15 +43,42 @@ class DBHandler:
 
     def get_user_by_device(self, device):
         return self.session.query(User).filter(User.device == device).first()
+ 
+    def add_humidity(self, user_id, value, device, timestamp):
+        new_hum = Humidity()
+        new_hum.value = value
+        new_hum.user_id = user_id
+        new_hum.device = device
+        new_hum.timestamp = timestamp
 
-    def add_Temperature(self, value, device, timestamp):
+        self.session.add(new_hum)
+        self.session.commit()
+
+    def add_temperature(self, user_id, value, device, timestamp):
         new_temp = Temperature()
         new_temp.value = value
+        new_temp.user_id = user_id
         new_temp.device = device
         new_temp.timestamp = timestamp
 
         self.session.add(new_temp)
         self.session.commit()
+
+    def add_water(self, user_id, value, device, timestamp):
+        new_water = Water()
+        new_water.value = value
+        new_water.user_id = user_id
+        new_water.device = device
+        new_water.timestamp = timestamp
+
+        self.session.add(new_water)
+        self.session.commit()
+
+    def get_last_Water(self, device):
+        return self.session.query(Water).filter(Water.device == device).order_by(Water.timestamp.desc()).first()
+
+    def get_last_Humidity(self, device):
+        return self.session.query(Humidity).filter(Humidity.device == device).order_by(Humidity.timestamp.desc()).first()
 
     def get_last_Temperature(self, device):
         return self.session.query(Temperature).filter(Temperature.device == device).order_by(Temperature.timestamp.desc()).first()
