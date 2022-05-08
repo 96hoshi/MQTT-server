@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 #from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
+from datetime import timedelta, datetime
 
 from model import Base, Humidity, User, Temperature, Water
 
@@ -82,3 +84,15 @@ class DBHandler:
 
     def get_last_Temperature(self, device):
         return self.session.query(Temperature).filter(Temperature.device == device).order_by(Temperature.timestamp.desc()).first()
+
+    def get_avg_Temperature(self, device):
+        time_now = datetime.utcnow()
+        last_hour = time_now - timedelta(hours=1)
+        avg = self.session.query(func.avg(Temperature.value).label('average')).filter(Temperature.device == device).filter(Temperature.timestamp >= last_hour).filter(Temperature.timestamp <= time_now ).first()
+        return avg.average
+
+    # def get_last_Humidity(self, device):
+    #     return self.session.query(Humidity).filter(Humidity.device == device).order_by(Humidity.timestamp.desc()).first()
+
+    # def get_avg_Humidity(self, device):
+    #     return self.session.query(func.avg(Humidity.value).label('average'))
