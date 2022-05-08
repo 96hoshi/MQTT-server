@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import Session
 
-from model import Base, User, Device, Temperature
+from model import Base, User, Temperature
 
 class DBHandler:
     def __init__(self):
@@ -28,6 +28,14 @@ class DBHandler:
 
     def set_OFF_temp_alarm(self, user):
         user.alert_temp = False
+        self.session.commit()
+
+    def set_ON_water_alarm(self, user):
+        user.alert_water = True
+        self.session.commit()
+
+    def set_OFF_water_alarm(self, user):
+        user.alert_water = False
         self.session.commit()
 
     def find_user(self, chat_id):

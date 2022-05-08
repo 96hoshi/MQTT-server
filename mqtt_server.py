@@ -15,16 +15,18 @@ load_dotenv()
 hostname = os.environ['HOSTNAME']
 username = os.environ['SERVER_NAME']
 password = os.environ['SERVER_PASSWORD']
+TOKEN = os.environ['TOKEN']
 
 MIN_TEMP = 15
 MAX_TEMP = 35
 MIN_LIGHT = 1000
 MAX_LIGHT = 100000
+MIN_HUM = 5
+MAX_HUM = 50
 
-TOKEN = os.environ['TOKEN']
 bot = Bot(token=TOKEN)
-dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 db = DBHandler()
+dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 
 # setting callbacks for different events to see if it works, print the message etc.
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -43,9 +45,8 @@ def on_publish(client, userdata, mid, properties=None):
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
 
-
+# handle messages recieved
 def on_message(client, userdata, msg):
-    global RED_IS_ON, BLUE_IS_ON
     response_topic = "plant/led"
 
     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
@@ -53,44 +54,58 @@ def on_message(client, userdata, msg):
 
     # The requested command is at the end of the topic
     if topic.endswith("dht"):
+        # parse payload
         sliced = str(msg.payload)[2:]
         payload = sliced[:len(sliced)-1]
-
         h, t = parse_dht(payload)
+
         if t > MIN_TEMP and t < MAX_TEMP:
             res = Alert.RED_OFF.value
-            publish(client, response_topic, res, 1)
             user = db.get_user_by_device(dev)
             if user is not None:
-                # chat_id = user.chat_id
                 if user.alert_temp:
+                    publish(client, response_topic, res, 1)
                     # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO: completare
                     db.set_OFF_temp_alarm(user)
-            # send_message("Temperature alert!")
             # TODO put it in a database and associate it with the client_id
         else:
             res = Alert.RED_ON.value
-            publish(client, response_topic, res, 1)
             user = db.get_user_by_device(dev)
             if user is not None:
                 chat_id = user.chat_id
                 if not user.alert_temp:
-                    bot.send_message(chat_id=chat_id, text='Temperature too high!') #TODO: completare
+                    publish(client, response_topic, res, 1)
+                    bot.send_message(chat_id=chat_id, text='Temperature too high!') #TODO: completare?
                     db.set_ON_temp_alarm(user)
+            # TODO put it in a database and associate it with the client_id
+        # TODO: add humidity checks
+        # TODO put humidity in a database and associate it with the client_id
 
     elif topic.endswith("water"):
+        # parse payload
         sliced = str(msg.payload)[2:]
         payload = sliced[:len(sliced)-1]
-
         value = parse_water(payload)
+
         if value == 1:
             res = Alert.BLUE_OFF.value
-            publish(client, response_topic, res, 1)
+            user = db.get_user_by_device(dev)
+            if user is not None:
+                if user.alert_water:
+                    publish(client, response_topic, res, 1)
+                    # bot.send_message(chat_id=chat_id, text='Water parameter good!') #TODO: completare?
+                    db.set_OFF_water_alarm(user)
             # TODO put it in a database and associate it with the client_id
         elif value == 0:
             res = Alert.BLUE_ON.value
-            publish(client, response_topic, res, 1)
-            # TODO: send message to bot
+            user = db.get_user_by_device(dev)
+            if user is not None:
+                chat_id = user.chat_id
+                if not user.alert_water:
+                    publish(client, response_topic, res, 1)
+                    bot.send_message(chat_id=chat_id, text='Your plant need some water!') #TODO: completare
+                    db.set_ON_water_alarm(user)
+        # TODO put it in a database and associate it with the client_id
     else:
         return
 
@@ -112,7 +127,7 @@ def parse_water(payload):
     return w
 
 def publish(client, topic, response, qos):
-    # Now send the alert to the client led
+    # Now send the alert to the client
     print("Sending response "+str(response)+" on '"+topic+"'")
 
     payload = json.dumps(response)

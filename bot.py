@@ -2,7 +2,6 @@ import os
 import logging
 import time
 
-# from datetime import datetime
 from sqlalchemy.sql import func
 from dotenv import load_dotenv
 from telegram import Update, ForceReply, BotCommand, Bot
@@ -13,12 +12,10 @@ from database import DBHandler
 load_dotenv()
 
 DEBUG = True
-dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 TOKEN = os.environ['TOKEN']
 bot = Bot(token=TOKEN)
 db = DBHandler()
-
-
+dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 
 # Enable logging
 logging.basicConfig(
@@ -49,36 +46,26 @@ def help_command(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /help is issued."""
     update.message.reply_text('Help!')
 
+
 def add_temp_command(update: Update, context: CallbackContext) -> None:
-    """Send a message when the command /help is issued."""
     db.add_Temperature(100, dev, func.now())
     update.message.reply_text('temp!')
 
+
 def show_temp_command(update: Update, context: CallbackContext) -> None:
-    """Send a message when the command /help is issued."""
     temp = db.get_last_Temperature(dev)
     if temp is not None:
         update.message.reply_text('Last Temp: ' + str(temp.value))
     else:
         update.message.reply_text('NO Temp!')
 
-# def echo(update: Update, context: CallbackContext) -> None:
-#     """Echo the user message."""
-#     # update.message.reply_text(update.message.text)
-#     update.message.reply_text("ok")
-
 
 def error(update, context: CallbackContext) -> None:
     logger.warning("Update {0} caused error {1}".format(update, context.error))
 
 
-# def send_message(text):
-#     bot.send_message(chat_id=92491394, text=text)
-
-
 def main() -> None:
     """Start the bot."""
-    # Create the Updater and pass it your bot's token.
     updater = Updater(TOKEN)
 
     # Get the dispatcher to register handlers
@@ -110,14 +97,6 @@ def main() -> None:
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.
     time.sleep(5)
-
-    # if not check:
-    #     print("check")
-    #     if user_id:
-    #         print("user_id")
-    #         print(user_id)
-    #         bot.send_message(chat_id=user_id, text='Innaffia la paintaa')
-    #         check = True
 
     # updater.idle()
 
