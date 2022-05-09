@@ -1,6 +1,8 @@
 import os
 import json
 from re import X
+
+from flask_login import session_protected
 import paho.mqtt.client as paho
 
 from paho import mqtt
@@ -43,13 +45,14 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
 # handle messages recieved
 def on_message(client, userdata, msg):
-    response_topic = "plant/led"
+    root, device, sensor = str(msg.topic).split("/")
+    response_topic = "device/"+device+"/led"
+    print(root, device, sensor)
 
     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
-    topic = msg.topic
 
     # The requested command is at the end of the topic
-    if topic.endswith("dht"):
+    if sensor == "dht":
         # parse payload
         payload = slice_payload(msg.payload)
         h, t = parse_dht(payload)
@@ -78,7 +81,7 @@ def on_message(client, userdata, msg):
         #store humidity in the db
         db.add_humidity(user.id, h, dev, now)
 
-    elif topic.endswith("water"):
+    elif sensor == "water":
         # parse payload
         payload = slice_payload(msg.payload)
         value = parse_water(payload)
@@ -151,7 +154,7 @@ def main():
 
     # connect to HiveMQ Cloud on default port 8883
     client.connect(hostname, 8883)
-    client.subscribe("plant/#", qos=0)
+    client.subscribe("device/#", qos=0)
     client.loop_forever()
 
 
