@@ -65,7 +65,7 @@ def on_message(client, userdata, msg):
             if user is not None:
                 if user.alert_temp:
                     publish(client, response_topic, res, 1)
-                    # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO:
+                    # bot.send_message(chat_id=chat_id, text='Temperature fine!')
                     db.set_OFF_temp_alarm(user)
 
         else:
@@ -99,7 +99,7 @@ def on_message(client, userdata, msg):
             if user is not None:
                 if user.alert_water:
                     publish(client, response_topic, res, 1)
-                    # bot.send_message(chat_id=chat_id, text='Water parameter good!') #TODO:
+                    # bot.send_message(chat_id=chat_id, text='Water parameter good!')
                     db.set_OFF_water_alarm(user)
                     db.set_last_watered(user)
             
