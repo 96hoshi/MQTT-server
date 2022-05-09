@@ -69,7 +69,7 @@ def help_command(update: Update, context: CallbackContext) -> None:
         "Shows a list of all possible commands\n"
         "/start - "
         "Start the bot\n"
-        "/register - "
+        "/register device - "
          "Register the device for monitoring\n"
         "/status - "
         "Gives you the status of your plant\n"
