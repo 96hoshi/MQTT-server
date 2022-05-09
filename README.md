@@ -1,9 +1,9 @@
-# MCPS Project: Plant Monitoring
+# MCPS Project: Plant Monitoring :seedling:
 *Mobile and Cyber-Phisical Systems Project by Fiorini, Lo Cascio*\
 
 ## MQTT-Server
-Server part as main system logic.
-It contains the Telegram Bot to inteface the user with several commands.
+Server as main system logic for sensors relevations.
+It contains also the Telegram Bot to inteface the user with several commands.\
 The bot is available at the following link:  https://t.me/plant_monitorbot.
 
 ## Links to the project repositories
