@@ -16,7 +16,6 @@ load_dotenv()
 hostname = os.environ['HOSTNAME']
 username = os.environ['SERVER_NAME']
 password = os.environ['SERVER_PASSWORD']
-dev = os.environ['DEVICE']
 token = os.environ['TOKEN']
 
 MIN_TEMP = 15
@@ -46,32 +45,42 @@ def on_subscribe(client, userdata, mid, granted_qos, properties=None):
 
 # handle messages recieved
 def on_message(client, userdata, msg):
-    response_topic = "plant/led"
+    root, device, sensor = str(msg.topic).split("/")
+    response_topic = "device/"+device+"/led"
+
+    if not db.find_device(device):
+        db.add_device(device)
+
+    if not db.user_in_device(device):
+        return
 
     print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     topic = msg.topic
 
     # The requested command is at the end of the topic
-    if topic.endswith("dht"):
+    if sensor == "dht":
         # parse payload
         payload = slice_payload(msg.payload)
         h, t = parse_dht(payload)
-        user = db.get_user_by_device(dev)
+        user = db.get_user_by_device(device)
+
 
         if t > MIN_TEMP and t < MAX_TEMP:
             res = Alert.RED_OFF.value
+            publish(client, response_topic, res, 0)
             if user is not None:
                 if user.alert_temp:
-                    publish(client, response_topic, res, 1)
+                    # publish(client, response_topic, res, 1)
                     # bot.send_message(chat_id=chat_id, text='Temperature fine!')
                     db.set_OFF_temp_alarm(user)
 
         else:
             res = Alert.RED_ON.value
+            publish(client, response_topic, res, 0)
             if user is not None:
                 chat_id = user.chat_id
                 if not user.alert_temp:
-                    publish(client, response_topic, res, 1)
+                    # publish(client, response_topic, res, 1)
                     if t < MIN_TEMP:
                         text = 'Temperature too low!'
                     else:
@@ -82,38 +91,40 @@ def on_message(client, userdata, msg):
         if user is not None:
             now = datetime.utcnow()
             #store temperature in the db
-            db.add_temperature(user.id, t, dev, now)
+            db.add_temperature(user.id, t, device, now)
             #store humidity in the db
-            db.add_humidity(user.id, h, dev, now)
+            db.add_humidity(user.id, h, device, now)
 
-    elif topic.endswith("water"):
+    elif sensor == "water":
         # parse payload
         payload = slice_payload(msg.payload)
         value = parse_water(payload)
-        user = db.get_user_by_device(dev)
+        user = db.get_user_by_device(device)
 
         if value == 1:
             res = Alert.BLUE_OFF.value
+            publish(client, response_topic, res, 0)
             if user is not None:
                 if user.alert_water:
-                    publish(client, response_topic, res, 1)
+                    # publish(client, response_topic, res, 1)
                     # bot.send_message(chat_id=chat_id, text='Water parameter good!')
                     db.set_OFF_water_alarm(user)
                     db.set_last_watered(user)
             
         elif value == 0:
             res = Alert.BLUE_ON.value
+            publish(client, response_topic, res, 0)
             if user is not None:
                 chat_id = user.chat_id
                 if not user.alert_water:
-                    publish(client, response_topic, res, 1)
+                    # publish(client, response_topic, res, 1)
                     bot.send_message(chat_id=chat_id, text='Your plant needs some water!')
                     db.set_ON_water_alarm(user)
 
         if user is not None:
             now = datetime.utcnow()
             #store water in the db
-            db.add_water(user.id, value, dev, now)
+            db.add_water(user.id, value, device, now)
     else:
         return
 
@@ -124,18 +135,14 @@ def slice_payload(payload):
 
 
 def parse_dht(payload):
-    print(payload)
     h, t = payload.split(",")
     hum = int(h.split(":")[1])
     temp = int(t.split(":")[1])
-
     return hum, temp
 
 
 def parse_water(payload):
-    print(payload)
     w = int(payload.split(":")[1])
-
     return w
 
 
@@ -164,7 +171,7 @@ def main():
 
     # connect to HiveMQ Cloud on port 8883
     client.connect(hostname, 8883)
-    client.subscribe("plant/#", qos=0)
+    client.subscribe("device/#", qos=0)
     client.loop_forever()
 
 if __name__ == '__main__':

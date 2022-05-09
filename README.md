@@ -12,6 +12,7 @@ The bot is available at the following link:  https://t.me/plant_monitorbot.
 
 **/help**: Shows a list of all possible commands  
 **/start**: Starts the monitoring of your plant  
+**/register** _device_ : Register the device for monitoring  
 **/status**: Gives you the status of your plant  
 **/avgtemp**: Returns the average temperature of the last hour  
 **/avghum**: Returns the average humidity of the last hour  

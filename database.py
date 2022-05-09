@@ -3,21 +3,27 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from datetime import timedelta, datetime
 
-from model import Base, Humidity, User, Temperature, Water
+from model import Base, Humidity, User, Temperature, Water, Device
 
 
 class DBHandler:
     def __init__(self):
-        self.engine = create_engine("sqlite:///plant.db", echo=True, future=True)
+        self.engine = create_engine("sqlite:///plant.db", echo=False, future=True)
         Base.metadata.create_all(self.engine)
         self.session = Session(self.engine)
 
-    def add_User(self, name, chat_id, device):
+    def add_user(self, name, chat_id):
         new_user = User()
         new_user.name = name
         new_user.chat_id = chat_id
-        new_user.device = device
         self.session.add(new_user)
+        self.session.commit()
+
+    def add_device(self, name):
+        new_device = Device()
+        new_device.name = name
+        new_device.chat_id = None
+        self.session.add(new_device)
         self.session.commit()
 
     def add_temperature(self, user_id, value, device, timestamp):
@@ -67,34 +73,72 @@ class DBHandler:
         user.last_watered = datetime.utcnow()
         self.session.commit()
 
-    def get_last_watered(self, device):
-        usr = self.get_user_by_device(device)
+    def get_last_watered(self, chat_id):
+        usr = self.get_user_by_chat_id(chat_id)
         if usr is None:
             return usr
         return usr.last_watered
 
-    def get_status(self, device):
+    def add_chat_id_to_device(self, device, chat_id):
+        dev = self.get_device(device)
+        if dev is None:
+            return None
+        if dev.chat_id is None:
+            dev.chat_id = chat_id
+            self.session.commit()
+            return True
+        return False
+
+    def get_device(self, name):
+        return self.session.query(Device).filter(Device.name == name).first()
+
+    def get_dev_name_by_chat_id(self, chat_id):
+        dev = self.session.query(Device).filter(Device.chat_id == chat_id).first()
+        if dev:
+            return dev.name
+        return None
+
+    def get_status(self, chat_id, dev):
         MIN_HUM = 20
         MAX_HUM = 80
 
-        usr = self.get_user_by_device(device)
+        usr = self.get_user_by_chat_id(chat_id)
         if usr is None:
-            return usr
+            return None
 
-        hum = self.get_last_humidity(usr.device)
+        hum = self.get_last_humidity(dev)
         hum_status = "not detected"
         if hum is not None:
             if hum.value >= MIN_HUM and hum.value <= MAX_HUM:
                 hum_status = "optimal"
             else:
                 hum_status = "not ideal"
-        return usr.alert_temp, usr.alert_water, hum_status
+        return [usr.alert_temp, usr.alert_water, hum_status]
+
+    def user_in_device(self, name):
+        dev = self.session.query(Device).filter(Device.name == name).first()
+        if dev is None:
+            return False
+
+        if dev.chat_id is None:
+            return False
+        return True 
 
     def find_user(self, chat_id):
         return self.session.query(User).filter(User.chat_id == chat_id).first() is not None
 
-    def get_user_by_device(self, device):
-        return self.session.query(User).filter(User.device == device).first()
+    def find_device(self, name):
+        return self.session.query(Device).filter(Device.name == name).first() is not None
+
+    def get_user_by_device(self, name):
+        dev = self.session.query(Device).filter(Device.name == name).first()
+        if dev is None:
+            return dev
+        return self.session.query(User).filter(User.chat_id == dev.chat_id).first() 
+
+
+    def get_user_by_chat_id(self, chat_id):
+        return self.session.query(User).filter(User.chat_id == chat_id).first()
 
     def get_last_temperature(self, device):
         return self.session.query(Temperature).filter(Temperature.device == device).order_by(Temperature.timestamp.desc()).first()

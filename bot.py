@@ -13,9 +13,7 @@ from database import DBHandler
 
 load_dotenv()
 
-DEBUG = True
 token = os.environ['TOKEN']
-dev = os.environ['DEVICE']
 bot = Bot(token=token)
 db = DBHandler()
 
@@ -33,15 +31,34 @@ def start(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /start is issued."""
 
     user = update.effective_user
-    if DEBUG:
-        print(user.id)
-        print(user.name)
     if not db.find_user(user.id):
-        db.add_User(user.name, user.id, dev)
+        db.add_user(user.name, user.id)
 
     update.message.reply_markdown_v2(
         fr'Hello {user.mention_markdown_v2()}\, use the /help command to see all the possible commands'
     )
+
+def register_device(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat.id
+
+    if len(context.args) != 1:
+        update.message.reply_text("A device name is needed")
+        return
+
+    user = update.effective_user
+    if not db.find_user(user.id):
+        update.message.reply_text("You're not registered in our system")
+        return
+
+    device = context.args[0]
+    res = db.add_chat_id_to_device(device, chat_id)
+    if res is None:
+        update.message.reply_text("Wrong device name")
+        return
+    if res:
+        update.message.reply_text("Device added")
+    else:
+        update.message.reply_text("Device already added")
 
 
 def help_command(update: Update, context: CallbackContext) -> None:
@@ -51,7 +68,9 @@ def help_command(update: Update, context: CallbackContext) -> None:
         "/help - "
         "Shows a list of all possible commands\n"
         "/start - "
-        "Starts the monitoring of your plant\n"
+        "Start the bot\n"
+        "/register - "
+         "Register the device for monitoring\n"
         "/status - "
         "Gives you the status of your plant\n"
         "\n*Return Records*\n"
@@ -69,7 +88,20 @@ def help_command(update: Update, context: CallbackContext) -> None:
 
 
 def status_command(update: Update, context: CallbackContext) -> None:
-    temp, water, hum_status = db.get_status(dev)
+    chat_id = update.message.chat.id
+    dev = db.get_dev_name_by_chat_id(chat_id)
+    if not dev:
+        update.message.reply_text('No device registered')
+        return
+
+    res= db.get_status(chat_id, dev)
+
+    if res is None:
+        update.message.reply_text('Internal error')
+
+    temp = res[0]
+    water = res[1]
+    hum_status = res[2]
     if temp and water:
         update.message.reply_text('Your plant needs some water and a better temperature!\nThe humidity of the environment is ' + hum_status)
     elif temp:
@@ -81,6 +113,8 @@ def status_command(update: Update, context: CallbackContext) -> None:
 
 
 def last_temperature_command(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat.id
+    dev = db.get_dev_name_by_chat_id(chat_id)
     temp = db.get_last_temperature(dev)
     if temp is not None:
         update.message.reply_text('Last temperature detected is: \n' + str(temp.value) + ' degrees')
@@ -89,6 +123,8 @@ def last_temperature_command(update: Update, context: CallbackContext) -> None:
 
 
 def last_humidity_command(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat.id
+    dev = db.get_dev_name_by_chat_id(chat_id)
     hum = db.get_last_humidity(dev)
     if hum is not None:
         update.message.reply_text('Last humidity detected is: \n' + str(hum.value) + '%')
@@ -97,7 +133,9 @@ def last_humidity_command(update: Update, context: CallbackContext) -> None:
 
 
 def last_water_command(update: Update, context: CallbackContext) -> None:
-    time = db.get_last_watered(dev)
+    chat_id = update.message.chat.id
+    dev = db.get_dev_name_by_chat_id(chat_id)
+    time = db.get_last_watered(chat_id)
     if time is not None:
         format_data = "%d/%m/%y at %H:%M:%S"
         timestr = time.strftime(format_data)
@@ -107,6 +145,8 @@ def last_water_command(update: Update, context: CallbackContext) -> None:
 
 
 def avg_temperature_command(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat.id
+    dev = db.get_dev_name_by_chat_id(chat_id)
     avgtemp = db.get_avg_temperature(dev)
     if avgtemp is not None:
         update.message.reply_text('Average temperature detected is: \n' + str("{:.2f}".format(avgtemp)) + ' degrees')
@@ -115,6 +155,8 @@ def avg_temperature_command(update: Update, context: CallbackContext) -> None:
 
 
 def avg_humidity_command(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat.id
+    dev = db.get_dev_name_by_chat_id(chat_id)
     avghum = db.get_avg_humidity(dev)
     if avghum is not None:
         update.message.reply_text('Average humidity detected is: \n' + str("{:.2f}".format(avghum)) + '%')
@@ -135,6 +177,7 @@ def main() -> None:
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("help", help_command))
+    dispatcher.add_handler(CommandHandler("register", register_device))
     dispatcher.add_handler(CommandHandler("status", status_command))
     dispatcher.add_handler(CommandHandler("lasttemp", last_temperature_command))
     dispatcher.add_handler(CommandHandler("lasthum", last_humidity_command))
@@ -145,6 +188,7 @@ def main() -> None:
     commands = [
         BotCommand("start", "Starts the bot"),
         BotCommand("help", "Shows a list of all possible commands"),
+        BotCommand("register", "Register the device for monitoring"),
         BotCommand("status", "Shows the status of your plant"),
         BotCommand("lasttemp", "Shows the last temperature detected"),
         BotCommand("lasthum", "Shows the last humidity detected"),
