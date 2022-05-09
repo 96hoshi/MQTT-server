@@ -19,7 +19,6 @@ password = os.environ['SERVER_PASSWORD']
 dev = os.environ['DEVICE']
 token = os.environ['TOKEN']
 
-
 MIN_TEMP = 15
 MAX_TEMP = 35
 MIN_HUM = 20
@@ -28,7 +27,6 @@ MAX_HUM = 90
 bot = Bot(token=token)
 db = DBHandler()
 
-# dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 
 # setting callbacks for different events to see if it works, print the message etc.
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -37,13 +35,16 @@ def on_connect(client, userdata, flags, rc, properties=None):
     else:
         print("Connect returned result code: " + str(rc))
 
+
 # with this callback you can see if your publish was successful
 def on_publish(client, userdata, mid, properties=None):
     print("mid: " + str(mid))
 
+
 # print which topic was subscribed to
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
 
 # handle messages recieved
 def on_message(client, userdata, msg):
@@ -66,7 +67,7 @@ def on_message(client, userdata, msg):
                     publish(client, response_topic, res, 1)
                     # bot.send_message(chat_id=chat_id, text='Temperature fine!') #TODO:
                     db.set_OFF_temp_alarm(user)
-            
+
         else:
             res = Alert.RED_ON.value
             if user is not None:
@@ -80,11 +81,12 @@ def on_message(client, userdata, msg):
                     bot.send_message(chat_id=chat_id, text=text)
                     db.set_ON_temp_alarm(user)
 
-        now = datetime.utcnow()
-        #store temperature in the db
-        db.add_temperature(user.id, t, dev, now)
-        #store humidity in the db
-        db.add_humidity(user.id, h, dev, now)
+        if user is not None:
+            now = datetime.utcnow()
+            #store temperature in the db
+            db.add_temperature(user.id, t, dev, now)
+            #store humidity in the db
+            db.add_humidity(user.id, h, dev, now)
 
     elif topic.endswith("water"):
         # parse payload
@@ -109,18 +111,19 @@ def on_message(client, userdata, msg):
                     publish(client, response_topic, res, 1)
                     bot.send_message(chat_id=chat_id, text='Your plant needs some water!')
                     db.set_ON_water_alarm(user)
-        
-        now = datetime.utcnow()
-        #store water in the db
-        db.add_water(user.id, value, dev, now)
+
+        if user is not None:
+            now = datetime.utcnow()
+            #store water in the db
+            db.add_water(user.id, value, dev, now)
     else:
         return
 
-    print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
 
 def slice_payload(payload):
     sliced = str(payload)[2:]
     return sliced[:len(sliced)-1]
+
 
 def parse_dht(payload):
     print(payload)
@@ -130,11 +133,13 @@ def parse_dht(payload):
 
     return hum, temp
 
+
 def parse_water(payload):
     print(payload)
     w = int(payload.split(":")[1])
 
     return w
+
 
 def publish(client, topic, response, qos):
     # Now send the alert to the client
@@ -142,6 +147,7 @@ def publish(client, topic, response, qos):
 
     payload = json.dumps(response)
     client.publish(topic, payload, qos=qos)
+
 
 def main():
     # userdata is user defined data of any type, updated by user_data_set()
@@ -158,11 +164,10 @@ def main():
     if username:
         client.username_pw_set(username, password)
 
-    # connect to HiveMQ Cloud on default port 8883
+    # connect to HiveMQ Cloud on port 8883
     client.connect(hostname, 8883)
     client.subscribe("plant/#", qos=0)
     client.loop_forever()
-
 
 if __name__ == '__main__':
     main()

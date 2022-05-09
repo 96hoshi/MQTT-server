@@ -18,7 +18,6 @@ token = os.environ['TOKEN']
 dev = os.environ['DEVICE']
 bot = Bot(token=token)
 db = DBHandler()
-# dev = 1 #TODO: rimuovere var globale e sostituire con device dell'utente
 
 # Enable logging
 logging.basicConfig(
@@ -68,13 +67,6 @@ def help_command(update: Update, context: CallbackContext) -> None:
         "Shows the last time you watered your plant\n",
         parse_mode=ParseMode.MARKDOWN)
 
-def add_temp_command(update: Update, context: CallbackContext) -> None:
-    db.add_temperature(92491394, 90, dev, datetime.now())
-    update.message.reply_text('temp!')
-
-def add_hum_command(update: Update, context: CallbackContext) -> None:
-    db.add_humidity(92491394, 50, dev, datetime.now())
-    update.message.reply_text('hum!')
 
 def status_command(update: Update, context: CallbackContext) -> None:
     temp, water = db.get_status(dev)
@@ -87,12 +79,14 @@ def status_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Good job! Your plant is healty and watered!')
 
+
 def last_temperature_command(update: Update, context: CallbackContext) -> None:
     temp = db.get_last_temperature(dev)
     if temp is not None:
         update.message.reply_text('Last temperature detected is: \n' + str(temp.value) + ' degrees')
     else:
         update.message.reply_text('There are no records for temperature')
+
 
 def last_humidity_command(update: Update, context: CallbackContext) -> None:
     hum = db.get_last_humidity(dev)
@@ -101,44 +95,46 @@ def last_humidity_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('There are no records for humidity')
 
+
 def last_water_command(update: Update, context: CallbackContext) -> None:
     time = db.get_last_watered(dev)
     if time is not None:
         format_data = "%d/%m/%y at %H:%M:%S"
         timestr = time.strftime(format_data)
-        update.message.reply_text('Last time your plant was watered: ' + timestr)
+        update.message.reply_text('Last time your plant was watered: \n' + timestr)
     else:
         update.message.reply_text('There are no records for water')
+
 
 def avg_temperature_command(update: Update, context: CallbackContext) -> None:
     avgtemp = db.get_avg_temperature(dev)
     if avgtemp is not None:
-        update.message.reply_text('Average temperature detected is: \n' + str(avgtemp) + ' degrees')
+        update.message.reply_text('Average temperature detected is: \n' + str("{:.2f}".format(avgtemp)) + ' degrees')
     else:
-        update.message.reply_text('There are no records for temperature')
+        update.message.reply_text('There are no records for temperature in the last hour')
+
 
 def avg_humidity_command(update: Update, context: CallbackContext) -> None:
     avghum = db.get_avg_humidity(dev)
     if avghum is not None:
-        update.message.reply_text('Average humidity detected is: \n' + str(avghum) + '%')
+        update.message.reply_text('Average humidity detected is: \n' + str("{:.2f}".format(avghum)) + '%')
     else:
-        update.message.reply_text('There are no records for humidity')
+        update.message.reply_text('There are no records for humidity in the last hour')
+
 
 def error(update, context: CallbackContext) -> None:
     logger.warning("Update {0} caused error {1}".format(update, context.error))
+
 
 def main() -> None:
     """Start the bot."""
     updater = Updater(token)
 
-    # Get the dispatcher to register handlers
+    # get the dispatcher to register handlers
     dispatcher = updater.dispatcher
-
     # on different commands - answer in Telegram
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("help", help_command))
-    dispatcher.add_handler(CommandHandler("add_temp", add_temp_command))
-    dispatcher.add_handler(CommandHandler("add_hum", add_hum_command))
     dispatcher.add_handler(CommandHandler("status", status_command))
     dispatcher.add_handler(CommandHandler("lasttemp", last_temperature_command))
     dispatcher.add_handler(CommandHandler("lasthum", last_humidity_command))
@@ -157,20 +153,10 @@ def main() -> None:
         BotCommand("avghum", "Shows the avarage humidity detected")
     ]
     dispatcher.bot.set_my_commands(commands)
-
     dispatcher.add_error_handler(error)
 
     # Start the Bot
     updater.start_polling()
-    # updater.start_webhook(listen="0.0.0.0", port=PORT, url_path=token,
-    #                       webhook_url="https://{0}.herokuapp.com/{1}".format(HEROKU_NAME, token))
-
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-
-    # updater.idle()
-
 
 if __name__ == '__main__':
     main()

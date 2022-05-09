@@ -111,7 +111,3 @@ class DBHandler:
                         .filter(Humidity.timestamp >= last_hour)\
                         .first()
         return avg.average
-
-
-
-
