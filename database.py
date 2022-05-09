@@ -74,10 +74,21 @@ class DBHandler:
         return usr.last_watered
 
     def get_status(self, device):
+        MIN_HUM = 20
+        MAX_HUM = 80
+
         usr = self.get_user_by_device(device)
         if usr is None:
             return usr
-        return usr.alert_temp, usr.alert_water
+
+        hum = self.get_last_humidity(usr.device)
+        hum_status = "not detected"
+        if hum is not None:
+            if hum.value >= MIN_HUM and hum.value <= MAX_HUM:
+                hum_status = "optimal"
+            else:
+                hum_status = "not ideal"
+        return usr.alert_temp, usr.alert_water, hum_status
 
     def find_user(self, chat_id):
         return self.session.query(User).filter(User.chat_id == chat_id).first() is not None

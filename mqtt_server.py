@@ -21,8 +21,6 @@ token = os.environ['TOKEN']
 
 MIN_TEMP = 15
 MAX_TEMP = 35
-MIN_HUM = 20
-MAX_HUM = 90
 
 bot = Bot(token=token)
 db = DBHandler()

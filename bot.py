@@ -69,15 +69,15 @@ def help_command(update: Update, context: CallbackContext) -> None:
 
 
 def status_command(update: Update, context: CallbackContext) -> None:
-    temp, water = db.get_status(dev)
+    temp, water, hum_status = db.get_status(dev)
     if temp and water:
-        update.message.reply_text('Your plant needs some water and a better temperature!')
+        update.message.reply_text('Your plant needs some water and a better temperature!\nThe humidity of the environment is ' + hum_status)
     elif temp:
-        update.message.reply_text('Your plant needs a better temperature!')
+        update.message.reply_text('Your plant needs a better temperature!\nThe humidity of the environment is ' + hum_status)
     elif water:
-        update.message.reply_text('Your plant needs still some water!')
+        update.message.reply_text('Your plant needs still some water!\nThe humidity of the environment is ' + hum_status)
     else:
-        update.message.reply_text('Good job! Your plant is healty and watered!')
+        update.message.reply_text('Good job! Your plant is healty and watered!\nThe humidity of the environment is ' + hum_status)
 
 
 def last_temperature_command(update: Update, context: CallbackContext) -> None:
